@@ -33,7 +33,7 @@ class Setting {
 class Utility {
     public function write_file($filename, $content, $form="json", $append=true,
                                  $end=true, $toConsole=false, $suppress=true) {
-
+        // TODO MARK.
     }
 }
 
