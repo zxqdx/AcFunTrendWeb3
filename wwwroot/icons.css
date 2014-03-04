@@ -1,0 +1,12 @@
+/**
+Formula: 400-x, -y
+Author: zxqdx
+*/
+.icon {
+    background-image: url(image/icons.png);
+    width: 16px;
+    height: 16px;
+}
+.icon.more-info {
+    background-position: 66px -203px;
+}
