@@ -7,6 +7,24 @@ Author: zxqdx
     width: 16px;
     height: 16px;
 }
+.icon.homepage {
+    background-position: 350px -80px;
+}
 .icon.more-info {
     background-position: 66px -203px;
+}
+.icon.setting {
+    background-position: 180px -121px;
+}
+.icon.feedback {
+    background-position: 236px -161px;
+}
+.icon.view-list {
+    background-position: 293px -121px;
+}
+.icon.view-card {
+    background-position: 265px -121px;
+}
+.icon.view-grid {
+    background-position: 208px -121px;
 }
