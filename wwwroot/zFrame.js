@@ -58,20 +58,20 @@ var __ = (function () {
                 var htmlWidth = document.documentElement.offsetWidth;
                 return htmlWidth <= 480 ? 1 : (htmlWidth <= 1024 ? 2 : (htmlWidth <= 1440 ? 3 : 4))
             },
-            textHidden: function(div) {
+            textHidden: function (div) {
                 $(div).wrapInner("<div></div>");
                 var hidden = $(div).height() < $(div).children('div').height();
                 $(div).children('div').replaceWith($(div).children('div').html());
                 return hidden;
             },
-            createLinkSpan: function(content, link) {
+            createLinkSpan: function (content, link) {
                 return '<span class="zLink" style="z-index: ' + (parseInt(_this.zIndex) + 3) +
                     '; cursor: pointer; font-weight: bold;" data-link="' + link + '">' + content + '</span>';
             },
-            stringStartsWith: function(string, needle) {
+            stringStartsWith: function (string, needle) {
                 return string.indexOf(needle) == 0;
             },
-            openLink: function(link) {
+            openLink: function (link) {
                 if (_this.utility.stringStartsWith(link, "http://")) {
                     window.open(link);
                 } else if (_this.utility.stringStartsWith(link, "https://")) {
@@ -165,6 +165,14 @@ var __ = (function () {
         this.notification.logIndex = 0;
         this.notification.logTime = 0;
         this.lastUpdate = "尚未更新";
+        this.task = {
+            todoList: {},
+            doingList: {},
+            finishedList: {},
+            failedList: {},
+            totalPercent: 0,
+            currentPercent: 0
+        };
         this.initialized = false;
 
         // Getter and Setter.
@@ -206,9 +214,27 @@ var __ = (function () {
                     (_this.notification.logIndex == _this.notification.logList.length - 1
                         && _this.notification.logTime < _this.constant.LOG_INTERVAL));
         }
-        this.isNotify = function () {
-            return this.isBroadcast() || this.isLog();
+        this.taskDoingCount = function () {
+            var count = 0;
+            for (var task in this.task.doingList) {
+                if (this.task.doingList[task].status == 0 || this.task.doingList[task].status == 3) {
+                    count++;
+                }
+            }
+            return count;
+        }
+        this.isTaskRunning = function () {
+            return this.taskDoingCount() > 0;
         };
+        this.isNotify = function () {
+            return this.isBroadcast() || this.isLog() || this.isTaskRunning();
+        };
+        this.addTask = function (id, fn, desc, retryNum, prerequisite) {
+            this.task.todoList[id] = {fn: fn, desc: desc, retryNum: retryNum};
+            if (prerequisite != undefined) {
+                this.task.todoList[id].prerequisite = prerequisite;
+            }
+        }
         $(document).ready(function () {
             // Draw UI
             // >> Initialize.
@@ -326,9 +352,9 @@ var __ = (function () {
                     background: _this.getColor("light")
                 });
             });
-            $(".zLink").live("mouseenter", function() {
+            $(".zLink").live("mouseenter",function () {
                 $(this).stop().animate({color: _this.getColor("bright")}, 400);
-            }).live("mouseleave", function() {
+            }).live("mouseleave",function () {
                 $(this).css({textDecoration: "none"});
                 $(this).stop().animate({color: _this.getColor("text")}, 200);
             }).live("mousedown touchstart",function () {
@@ -383,7 +409,15 @@ var __ = (function () {
                 zIndex: _this.zIndex + 2
             });
             $(_this.dom.progressBar).css({
-                zIndex: _this.zIndex + 1
+                position: "fixed",
+                height: "4px",
+                bottom: 0,
+                left: 0,
+                width: 0,
+                "-webkit-box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
+                "box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
+                background: _this.getColor("bright"),
+                zIndex: _this.zIndex + 3
             });
             $(_this.dom.gadget.container).css({
                 zIndex: _this.zIndex
@@ -401,7 +435,6 @@ var __ = (function () {
                     width: htmlWidth,
                     background: _this.getColor("pure")
                 });
-
                 // >> >> zFrameLastUpdate.
                 $(_this.dom.left.lastUpdate).html(_this.lastUpdateText + ": " + _this.lastUpdate);
                 // >> >> zFrameToggle.
@@ -517,14 +550,21 @@ var __ = (function () {
                 }
                 if (_this.utility.textHidden(_this.dom.notification.content)) {
                     if (!$(_this.dom.notification.container).hasClass("zBtn")) {
-                        enableBtn(_this.dom.notification.container, function() {
-                            alert(notificationText);
+                        enableBtn(_this.dom.notification.container, function () {
+                            alert(_this.dom.notification.content.plainText);
                         });
                     }
                 } else {
                     if ($(_this.dom.notification.container).hasClass("zBtn")) {
                         disableBtn(_this.dom.notification.container);
                     }
+                }
+                // >> >> >> Deal with dom.progressBar
+                if (_this.task.totalPercent==0) {
+                    $(_this.dom.progressBar).css({width: 0});
+                } else {
+                    $(_this.dom.progressBar).stop().animate(
+                        {width: htmlWidth * (_this.task.currentPercent / _this.task.totalPercent)}, 1000);
                 }
             };
             _this.repaint();
@@ -533,8 +573,6 @@ var __ = (function () {
             });
 
             // >> Tick.
-            // >> >> Task tick.
-
             // >> >> Notification tick.
             var prevNotify = false;
             var prevHtml = "";
@@ -543,7 +581,7 @@ var __ = (function () {
                     var notificationText = "";
                     // >> >> >> Animate in.
                     if (!prevNotify) {
-                        $(_this.dom.notification.container).stop().fadeIn(400, function() {
+                        $(_this.dom.notification.container).stop().fadeIn(400, function () {
                             $(this).css({opacity: 1, display: "block"});
                         });
                     }
@@ -559,15 +597,15 @@ var __ = (function () {
                         } else {
                             _this.notification.logTime += _this.constant.TICK_INTERVAL;
                         }
-                        if (_this.isBroadcast()) {
+                        if (_this.isBroadcast() || _this.isTaskRunning()) {
                             notificationText += " - ";
                         }
                     }
                     // >> >> >> Broadcasts.
                     if (_this.isBroadcast()) {
-                        // TODO: Deal with broadcast.link
+                        // DONE: Deal with broadcast.link
                         var currentBroadcast = _this.notification.broadcastList[_this.notification.broadcastIndex];
-                        var brText = currentBroadcast.link=="" ? currentBroadcast.content :
+                        var brText = currentBroadcast.link == "" ? currentBroadcast.content :
                             _this.utility.createLinkSpan(currentBroadcast.content, currentBroadcast.link);
                         notificationText += brText;
                         if (_this.notification.broadcastTime >= _this.constant.BROADCAST_INTERVAL) {
@@ -581,13 +619,21 @@ var __ = (function () {
                             _this.notification.broadcastIndex = 0;
                             _this.notification.broadcastTime = 0;
                         }
+                        if (_this.isTaskRunning()) {
+                            notificationText += " - ";
+                        }
+                    }
+                    // >> >> >> Task info.
+                    if (_this.isTaskRunning()) {
+                        notificationText += _this.taskDoingCount() + "个任务正在执行";
                     }
                     // >> >> >> Change html.
                     if (notificationText != prevHtml) {
                         $(_this.dom.notification.content).html(notificationText);
+                        _this.dom.notification.content.plainText = notificationText;
                         if (_this.utility.textHidden(_this.dom.notification.content)) {
                             if (!$(_this.dom.notification.container).hasClass("zBtn")) {
-                                enableBtn(_this.dom.notification.container, function() {
+                                enableBtn(_this.dom.notification.container, function () {
                                     alert(notificationText);
                                 });
                             }
@@ -609,6 +655,96 @@ var __ = (function () {
                     _this.notification.broadcastCooldown -= _this.constant.TICK_INTERVAL;
                     // >> >> >> Change prevNotify.
                     prevNotify = false;
+                }
+            }, _this.constant.TICK_INTERVAL);
+            // >> >> Task tick.
+            var startTask = function (id) {
+                var task = _this.task.todoList[id];
+                delete _this.task.todoList[id];
+                task.status = 0; // 0: doing; 1: failed; 2: finished; 3: callback
+                task.tryCount = 0;
+                task.percent = 0;
+                task.taskId = window.setTimeout(function () {
+                    _this.addLog(task.desc + "开始执行");
+                    task.fn(task);
+                    if (task.status == 0) {
+                        task.percent = 100;
+                        task.status = 2;
+                    }
+                }, 50);
+                _this.task.doingList[id] = task;
+            };
+            var prevTotalPercent = 0;
+            var prevCurrentPercent = 0;
+            window.setInterval(function () {
+                // >> >> >> todoList.
+                for (var eachTaskId in _this.task.todoList) {
+                    var eachTask = _this.task.todoList[eachTaskId];
+                    if (!eachTask.hasOwnProperty("prerequisite")) {
+                        startTask(eachTaskId);
+                    } else {
+                        if (_this.task.finishedList.hasOwnProperty(eachTask.prerequisite)) {
+                            startTask(eachTaskId);
+                        } else if (_this.task.failedList.hasOwnProperty(eachTask.prerequisite)) {
+                            _this.addLog(eachTask.desc + "因前置任务"
+                                + _this.task.failedList[eachTask.prerequisite].desc + "执行失败而失败", "SEVERE");
+                            eachTask.status = 1;
+                            eachTask.percent = 0;
+                            eachTask.tryCount = 0;
+                            eachTask.taskId = null;
+                            delete _this.task.todoList[eachTaskId];
+                            _this.task.failedList[eachTaskId] = eachTask;
+                        }
+                    }
+                }
+                // >> >> >> doingList.
+                _this.task.totalPercent = 0;
+                _this.task.currentPercent = 0;
+                for (var eachTaskId in _this.task.doingList) {
+                    var eachTask = _this.task.doingList[eachTaskId];
+                    if (eachTask.status == 2) {
+                        _this.addLog(eachTask.desc + "执行完毕");
+                        window.clearTimeout(eachTask.taskId);
+                        delete _this.task.doingList[eachTaskId];
+                        _this.task.finishedList[eachTaskId] = eachTask;
+                    } else if (eachTask.status == 1) {
+                        if (eachTask.tryCount == eachTask.retryNum) {
+                            _this.addLog(eachTask.desc + "执行失败", "SEVERE");
+                            window.clearTimeout(eachTask.taskId);
+                            delete _this.task.doingList[eachTaskId];
+                            _this.task.failedList[eachTaskId] = eachTask;
+                        } else {
+                            window.clearTimeout(eachTask.taskId);
+                            eachTask.status = 0;
+                            eachTask.tryCount++;
+                            eachTask.percent = 0;
+                            eachTask.taskId = window.setTimeout(function () {
+                                _this.addLog(eachTask.desc + "开始第" + eachTask.tryCount + "次重试", "WARNING");
+                                eachTask.fn(eachTask);
+                                if (eachTask.status == 0) {
+                                    eachTask.percent = 100;
+                                    eachTask.status = 2;
+                                }
+                            }, 50);
+                        }
+                    } else {
+                        _this.task.totalPercent += 100;
+                        _this.task.currentPercent += eachTask.percent;
+                    }
+                }
+                // >> >> >> Progress bar.
+                if (_this.task.totalPercent != prevTotalPercent || _this.task.currentPercent != prevCurrentPercent) {
+                    var htmlWidth = document.documentElement.offsetWidth;
+                    if (_this.task.totalPercent == 0) {
+                        $(_this.dom.progressBar).stop().animate({width: htmlWidth}, 1000, function() {
+                            $(_this.dom.progressBar).css({width: 0});
+                        });
+                    } else {
+                        $(_this.dom.progressBar).stop().animate(
+                            {width: htmlWidth * (_this.task.currentPercent / _this.task.totalPercent)}, 1000);
+                    }
+                    prevTotalPercent = _this.task.totalPercent;
+                    prevCurrentPercent = _this.task.currentPercent;
                 }
             }, _this.constant.TICK_INTERVAL);
             // Set initialized signal.
@@ -643,13 +779,13 @@ var __ = (function () {
 // Tests
 __.refreshLastUpdate();
 __.addLog("WELCOME TO THE ACFUN TREND!WELCOME TO THE ACFUN TREND!WELCOME TO THE ACFUN TREND!");
-window.setTimeout(function() {
+window.setTimeout(function () {
     __.addLog("ABCDEFGHIJKLMNOPQ");
-    window.setTimeout(function() {
+    window.setTimeout(function () {
         __.addLog("测试一下中文看是看不到的应该"
             + __.utility.createLinkSpan("AC", "www.acfun.tv") + "是看不到的应该是看不该是看不到的");
     }, 1000);
-    window.setTimeout(function() {
+    window.setTimeout(function () {
         __.addBroadcast("TestItOut!!!")
         __.addBroadcast("百度戳我", "www.baidu.com")
     }, 500);

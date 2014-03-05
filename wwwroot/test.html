@@ -9,13 +9,24 @@
     <script src="zFrame.js"></script>
 </head>
 <script>
-
+var vvv = 1;
 </script>
 <body style="background-color: rgba(0,0,0,.06);">
 <div style="background-color: #0A67A3; height: 50px; position:fixed; bottom: 0; z-index: 700">
     what?
     <div class="icon more-info"></div>
 </div>
-中文？
+<span onclick="__.addTask('id'+vvv,function(task) {task.status=3; task.percent=100*Math.random(); setInterval(function() {task.percent = 90;task.status=2; }, 5000)},'鬼畜测试，次数：'+vvv, 0); vvv++;">
+    成功？
+</span>
+<span onclick="__.addTask('id'+vvv,function(task) {task.status=3; task.percent=100*Math.random(); setInterval(function() {task.percent = 90;task.status=1; }, 5000)},'鬼畜测试，次数：'+vvv, 0); vvv++;">
+    失败不重试？
+</span>
+<span onclick="__.addTask('id'+vvv,function(task) {task.status=3; task.percent=100*Math.random(); setInterval(function() {task.percent = 90;task.status=1; }, 5000)},'鬼畜测试，次数：'+vvv, 3); vvv++;">
+    失败后重试？
+</span>
+<span onclick="__.addTask('id'+vvv,function(task) {task.status=3; task.percent=100*Math.random(); setInterval(function() {task.percent = 90;task.status=1; }, 5000)},'鬼畜测试，次数：'+vvv, 3, 'id1'); vvv++;">
+    依赖第一次？
+</span>
 </body>
 </html>

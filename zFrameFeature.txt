@@ -71,11 +71,21 @@
 			新日志可以打断旧日志 [OK]
 			两种消息之间用" - "相连 [OK]
 		若长度超出，则省略号，并可让用户点击阅读 [OK]
-	任务队列
-		加入队列
-		自动重试
+	链接样式 [OK]
+		<a> [OK]
+	任务队列 [OK]
+		加入队列 [OK]
+		遍历todo队列 [OK]
+			如果无前置条件，则移入doing队列，开始执行 [OK]
+			如果有前置条件，且前置条件在finished队列中，开始执行 [OK]
+			如果有前置条件，且前置条件在failed队列中，则直接fail [OK]
+		遍历doing队列 [OK]
+			如果完成，则移入finished队列 [OK]
+			如果失败 [OK]
+			超过上限则移入failed队列 [OK]
+				自动重试 [OK]
+	内置jquery ajax [TODO]
 	使用hashTag
-	内置jquery ajax
 	实用utility
 	加入Tooltip功能
 	如果是爪机分辨率，则disable列表模式
