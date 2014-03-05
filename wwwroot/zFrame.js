@@ -27,6 +27,7 @@ var __ = (function () {
         }
 
         // Parse parameters and initialization.
+        var _this = this;
         this.constant = {
             TICK_INTERVAL: 50,
             BROADCAST_COOLDOWN: 30000,
@@ -62,6 +63,24 @@ var __ = (function () {
                 var hidden = $(div).height() < $(div).children('div').height();
                 $(div).children('div').replaceWith($(div).children('div').html());
                 return hidden;
+            },
+            createLinkSpan: function(content, link) {
+                return '<span class="zLink" style="z-index: ' + (parseInt(_this.zIndex) + 3) +
+                    '; cursor: pointer; font-weight: bold;" data-link="' + link + '">' + content + '</span>';
+            },
+            stringStartsWith: function(string, needle) {
+                return string.indexOf(needle) == 0;
+            },
+            openLink: function(link) {
+                if (_this.utility.stringStartsWith(link, "http://")) {
+                    window.open(link);
+                } else if (_this.utility.stringStartsWith(link, "https://")) {
+                    window.open(link);
+                } else if (_this.utility.stringStartsWith(link, "ssl://")) {
+                    window.open(link);
+                } else {
+                    window.open("http://" + link);
+                }
             }
         }
         var parameterList = {
@@ -90,6 +109,9 @@ var __ = (function () {
                     broadcastList: [],
                     logList: []
                 }
+            },
+            zIndex: {
+                default: 1024
             }
         }
         var colorDict = {
@@ -187,8 +209,6 @@ var __ = (function () {
         this.isNotify = function () {
             return this.isBroadcast() || this.isLog();
         };
-
-        var _this = this;
         $(document).ready(function () {
             // Draw UI
             // >> Initialize.
@@ -219,7 +239,7 @@ var __ = (function () {
                     };
                 }
             }
-            var disableeBtn = function (div, css) {
+            var disableBtn = function (div, css) {
                 $(div).removeClass("zBtn");
                 if (div.hasOwnProperty("callback")) {
                     delete div.callback;
@@ -306,6 +326,17 @@ var __ = (function () {
                     background: _this.getColor("light")
                 });
             });
+            $(".zLink").live("mouseenter", function() {
+                $(this).stop().animate({color: _this.getColor("bright")}, 400);
+            }).live("mouseleave", function() {
+                $(this).css({textDecoration: "none"});
+                $(this).stop().animate({color: _this.getColor("text")}, 200);
+            }).live("mousedown touchstart",function () {
+                $(this).css({textDecoration: "underline"});
+            }).live("mouseup touchend", function () {
+                _this.utility.openLink($(this).attr("data-link"));
+                $(this).css({textDecoration: "none"});
+            });
             // >> Static styles.
             $(_this.dom.container).css({
                 "user-select": "none",
@@ -325,7 +356,8 @@ var __ = (function () {
                 bottom: "0",
                 left: 0,
                 "-webkit-box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
-                "box-shadow": "0 0 2px 2px rgba(0,0,0,.2)"
+                "box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
+                zIndex: _this.zIndex
             });
             $(_this.dom.left.container).css({
                 float: "left"
@@ -348,12 +380,17 @@ var __ = (function () {
                 marginTop: "5px",
                 wordWrap: "break-word",
                 overflow: "hidden",
-                zIndex: 2
+                zIndex: _this.zIndex + 2
+            });
+            $(_this.dom.progressBar).css({
+                zIndex: _this.zIndex + 1
+            });
+            $(_this.dom.gadget.container).css({
+                zIndex: _this.zIndex
             });
 
             // >> Repaint.
             _this.repaint = function () {
-                // TODO: implement.
                 // >> >> Calculation
                 // NOTE: offsetDimensions do not include scrollbar.
                 var htmlWidth = document.documentElement.offsetWidth;
@@ -461,7 +498,7 @@ var __ = (function () {
                         background: _this.getColor("gray"),
                         "-webkit-box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
                         "box-shadow": "0 0 2px 2px rgba(0,0,0,.2)",
-                        zIndex: -1
+                        zIndex: _this.zIndex - 1
                     });
                     _this.dom.notification.container.originalColor = _this.getColor("gray");
                 } else {
@@ -474,11 +511,21 @@ var __ = (function () {
                         background: "transparent",
                         "-webkit-box-shadow": "none",
                         "box-shadow": "none",
-                        zIndex: 1
+                        zIndex: _this.zIndex + 1
                     });
                     _this.dom.notification.container.originalColor = "transparent";
                 }
-
+                if (_this.utility.textHidden(_this.dom.notification.content)) {
+                    if (!$(_this.dom.notification.container).hasClass("zBtn")) {
+                        enableBtn(_this.dom.notification.container, function() {
+                            alert(notificationText);
+                        });
+                    }
+                } else {
+                    if ($(_this.dom.notification.container).hasClass("zBtn")) {
+                        disableBtn(_this.dom.notification.container);
+                    }
+                }
             };
             _this.repaint();
             $(window).resize(function () {
@@ -490,6 +537,7 @@ var __ = (function () {
 
             // >> >> Notification tick.
             var prevNotify = false;
+            var prevHtml = "";
             window.setInterval(function () {
                 if (_this.isNotify()) {
                     var notificationText = "";
@@ -518,7 +566,10 @@ var __ = (function () {
                     // >> >> >> Broadcasts.
                     if (_this.isBroadcast()) {
                         // TODO: Deal with broadcast.link
-                        notificationText += _this.notification.broadcastList[_this.notification.broadcastIndex].content;
+                        var currentBroadcast = _this.notification.broadcastList[_this.notification.broadcastIndex];
+                        var brText = currentBroadcast.link=="" ? currentBroadcast.content :
+                            _this.utility.createLinkSpan(currentBroadcast.content, currentBroadcast.link);
+                        notificationText += brText;
                         if (_this.notification.broadcastTime >= _this.constant.BROADCAST_INTERVAL) {
                             _this.notification.broadcastIndex++;
                             _this.notification.broadcastTime = 0;
@@ -532,13 +583,20 @@ var __ = (function () {
                         }
                     }
                     // >> >> >> Change html.
-                    $(_this.dom.notification.content).html(notificationText);
-                    if (_this.utility.textHidden(_this.dom.notification.content)) {
-                        enableBtn(_this.dom.notification.container, function() {
-                            alert(notificationText);
-                        });
-                    } else {
-                        disableeBtn(_this.dom.notification.container);
+                    if (notificationText != prevHtml) {
+                        $(_this.dom.notification.content).html(notificationText);
+                        if (_this.utility.textHidden(_this.dom.notification.content)) {
+                            if (!$(_this.dom.notification.container).hasClass("zBtn")) {
+                                enableBtn(_this.dom.notification.container, function() {
+                                    alert(notificationText);
+                                });
+                            }
+                        } else {
+                            if ($(_this.dom.notification.container).hasClass("zBtn")) {
+                                disableBtn(_this.dom.notification.container);
+                            }
+                        }
+                        prevHtml = notificationText;
                     }
                     // >> >> >> Change prevNotify.
                     prevNotify = true;
@@ -568,7 +626,8 @@ var __ = (function () {
             "view-list": {title: "列表模式", hideLevel: [1]},
             "view-grid": {title: "网格模式"}
         },
-        toggleChosen: "view-card"
+        toggleChosen: "view-card",
+        zIndex: 999
     });
     if (newFrame.failed) {
         console.log("zFrame object failed to create.");
@@ -587,11 +646,13 @@ __.addLog("WELCOME TO THE ACFUN TREND!WELCOME TO THE ACFUN TREND!WELCOME TO THE 
 window.setTimeout(function() {
     __.addLog("ABCDEFGHIJKLMNOPQ");
     window.setTimeout(function() {
-        __.addLog("测试一下中文看是看不到的应该是看不到的应该是看不该是看不到的");
+        __.addLog("测试一下中文看是看不到的应该"
+            + __.utility.createLinkSpan("AC", "www.acfun.tv") + "是看不到的应该是看不该是看不到的");
     }, 1000);
     window.setTimeout(function() {
         __.addBroadcast("TestItOut!!!")
+        __.addBroadcast("百度戳我", "www.baidu.com")
     }, 500);
-}, 6550)
+}, 1550)
 console.log(__.isNotify());
 console.log(__.lastUpdate);
