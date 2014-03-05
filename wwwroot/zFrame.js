@@ -199,6 +199,12 @@ var __ = (function () {
             } else {
                 newLog.type = "DEBUG";
             }
+            switch (newLog.type) {
+                case "DEBUG": newLog.interruptTime = this.constant.LOG_INTERRUPT; break;
+                case "WARNING": newLog.interruptTime = this.constant.LOG_INTERRUPT * 1.8; break;
+                case "SEVERE": newLog.interruptTime = this.constant.LOG_INTERRUPT * 2.5; break;
+                default: newLog.interruptTime = this.constant.LOG_INTERRUPT;
+            }
             this.notification.logList.push(newLog);
         }
         this.isBroadcast = function () {
@@ -230,6 +236,18 @@ var __ = (function () {
             return this.isBroadcast() || this.isLog() || this.isTaskRunning();
         };
         this.addTask = function (id, fn, desc, retryNum, prerequisite) {
+            if (this.task.failedList.hasOwnProperty(id)) {
+                delete this.task.failedList[id];
+            } else if (this.task.finishedList.hasOwnProperty(id)) {
+                delete this.task.finishedList[id];
+            } else if (this.task.todoList.hasOwnProperty(id)) {
+                this.addLog(desc + "无法执行，因为即将执行的同id任务("
+                    + this.task.todoList[id].desc + ")已经存在", "WARNING");
+                return;
+            } else if (this.task.doingList.hasOwnProperty(id)) {
+                this.addLog(desc + "无法执行，因为同id任务(" + this.task.doingList[id].desc + ")正在执行", "WARNING");
+                return;
+            }
             this.task.todoList[id] = {fn: fn, desc: desc, retryNum: retryNum};
             if (prerequisite != undefined) {
                 this.task.todoList[id].prerequisite = prerequisite;
@@ -560,7 +578,7 @@ var __ = (function () {
                     }
                 }
                 // >> >> >> Deal with dom.progressBar
-                if (_this.task.totalPercent==0) {
+                if (_this.task.totalPercent == 0) {
                     $(_this.dom.progressBar).css({width: 0});
                 } else {
                     $(_this.dom.progressBar).stop().animate(
@@ -588,9 +606,10 @@ var __ = (function () {
                     // >> >> >> Logs.
                     if (_this.isLog()) {
                         // TODO: Deal with log.type
-                        notificationText += _this.notification.logList[_this.notification.logIndex].content;
+                        var currentLog = _this.notification.logList[_this.notification.logIndex]
+                        notificationText += currentLog.content;
                         if ((_this.notification.logIndex < _this.notification.logList.length - 1 &&
-                            _this.notification.logTime > _this.constant.LOG_INTERRUPT) ||
+                            _this.notification.logTime > currentLog.interruptTime) ||
                             _this.notification.logTime >= _this.constant.LOG_INTERVAL) {
                             _this.notification.logIndex++;
                             _this.notification.logTime = 0;
@@ -736,7 +755,7 @@ var __ = (function () {
                 if (_this.task.totalPercent != prevTotalPercent || _this.task.currentPercent != prevCurrentPercent) {
                     var htmlWidth = document.documentElement.offsetWidth;
                     if (_this.task.totalPercent == 0) {
-                        $(_this.dom.progressBar).stop().animate({width: htmlWidth}, 1000, function() {
+                        $(_this.dom.progressBar).stop().animate({width: htmlWidth}, 1000, function () {
                             $(_this.dom.progressBar).css({width: 0});
                         });
                     } else {

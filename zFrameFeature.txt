@@ -88,7 +88,6 @@
 	使用hashTag
 	实用utility
 	加入Tooltip功能
-	如果是爪机分辨率，则disable列表模式
 	与zIntl协作
 自定义
 	配色风格
