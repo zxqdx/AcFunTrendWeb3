@@ -78,6 +78,8 @@ var __ = (function () {
                     window.open(link);
                 } else if (_this.utility.stringStartsWith(link, "ssl://")) {
                     window.open(link);
+                } else if (_this.utility.stringStartsWith(link, "#")) {
+                    window.location = link;
                 } else {
                     window.open("http://" + link);
                 }
@@ -200,10 +202,17 @@ var __ = (function () {
                 newLog.type = "DEBUG";
             }
             switch (newLog.type) {
-                case "DEBUG": newLog.interruptTime = this.constant.LOG_INTERRUPT; break;
-                case "WARNING": newLog.interruptTime = this.constant.LOG_INTERRUPT * 1.8; break;
-                case "SEVERE": newLog.interruptTime = this.constant.LOG_INTERRUPT * 2.5; break;
-                default: newLog.interruptTime = this.constant.LOG_INTERRUPT;
+                case "DEBUG":
+                    newLog.interruptTime = this.constant.LOG_INTERRUPT;
+                    break;
+                case "WARNING":
+                    newLog.interruptTime = this.constant.LOG_INTERRUPT * 1.8;
+                    break;
+                case "SEVERE":
+                    newLog.interruptTime = this.constant.LOG_INTERRUPT * 2.5;
+                    break;
+                default:
+                    newLog.interruptTime = this.constant.LOG_INTERRUPT;
             }
             this.notification.logList.push(newLog);
         }
@@ -324,10 +333,19 @@ var __ = (function () {
             _this.dom.progressBar = getDiv(_this.dom.container, "zFrameProgressBar");
             _this.dom.gadget.container = getDiv(_this.dom.container, "zFrameGadget");
             _this.dom.gadget.items = {};
-            enableBtn(_this.dom.left.homepageBtn);
+            enableBtn(_this.dom.left.homepageBtn, function() {
+                _this.utility.openLink("#");
+            });
             enableBtn(_this.dom.left.siteName);
             enableBtn(_this.dom.left.siteVersion);
-            enableBtn(_this.dom.left.miniBtn);
+            enableBtn(_this.dom.left.miniBtn, function () {
+                var logHtml = _this.lastUpdateText + ": " + _this.lastUpdate;
+                if (_this.utility.getHtmlLevel() == 1) {
+                    logHtml = _this.utility.createLinkSpan(_this.siteName, "#about") + " - " +
+                        _this.utility.createLinkSpan(_this.siteVersion, "#update") + " - " + logHtml;
+                }
+                _this.addLog(logHtml);
+            });
             enableBtn(_this.dom.right.setting);
             enableBtn(_this.dom.right.feedback);
             addIcon(_this.dom.left.homepageBtn, "homepage");
@@ -785,7 +803,7 @@ var __ = (function () {
         zIndex: 999
     });
     if (newFrame.failed) {
-        console.log("zFrame object failed to create.");
+        console.error("zFrame object failed to create.");
         return null;
     } else {
         delete newFrame.failed;

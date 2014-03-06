@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * Class Setting
+ */
 class Setting
 {
     public $isDebug;
@@ -32,6 +35,9 @@ class Setting
     }
 }
 
+/**
+ * Class Utility
+ */
 class Utility
 {
     public static function is_panguine()
@@ -70,6 +76,24 @@ class Utility
     }
 }
 
+/**
+ * Class TrendSQL
+ *
+ * Used for connecting to MySQL.
+ * REMINDER: When operating SQL, use escape functions like mysql_real_escape_string().
+ */
+class TrendSQL
+{
+    function __construct() {
+
+    }
+}
+
+/**
+ * Class Logger
+ *
+ * Used for logging and debugging.
+ */
 class Logger
 {
     public $setting;
@@ -94,7 +118,7 @@ class Logger
     public function add($message, $level = "DETAIL", Exception $ex = null)
     {
         $currentTime = Logger::_time();
-        if ($this->previousTime!=$currentTime) {
+        if ($this->previousTime != $currentTime) {
             Utility::write_file($this->filename, sprintf("[%s]", $currentTime), null);
             $this->previousTime = $currentTime;
         }
