@@ -85,7 +85,7 @@
 			超过上限则移入failed队列 [OK]
 				自动重试 [OK]
 	内置jquery ajax [TODO]
-	使用hashTag
+	使用hashTag，检查hash
 	实用utility
 	加入Tooltip功能
 	与zIntl协作

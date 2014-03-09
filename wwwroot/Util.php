@@ -15,6 +15,9 @@ class Setting
     public $mysqlPassword;
     public $mysqlPort;
     public $mysqlAcWsConnectorDB;
+    public $mysqlApiDB;
+    public $mysqlEncoding;
+    public $TrendAPIPoolNum;
 
     function __construct()
     {
@@ -28,10 +31,14 @@ class Setting
             $this->mysqlHost = "127.0.0.1";
             $this->mysqlPassword = "miaowu";
             $this->mysqlPort = 3306;
-            $this->mysqlAcWsConnectorDB = "trend_acws";
         } else {
             throw new Exception("Not yet implemented.");
         }
+        $this->mysqlAcWsConnectorDB = "trend_acws";
+        $this->mysqlApiDB = "trend_api";
+        $this->mysqlEncoding = "utf8mb4";
+
+        $this->TrendAPIPoolNum = 10;
     }
 }
 
@@ -49,7 +56,7 @@ class Utility
     {
         try {
             $folderName = dirname($filename);
-            mkdir($filename, $recursive = true);
+            mkdir($folderName, $recursive = true);
             if ($append) {
                 $file = fopen($filename, "a");
             } else {
@@ -84,8 +91,44 @@ class Utility
  */
 class TrendSQL
 {
-    function __construct() {
+    public $setting;
+    public $logger;
+    public $con;
 
+    function __construct($module)
+    {
+        $this->setting = new Setting();
+        $this->logger = new Logger($module);
+        $this->con = new mysqli($this->setting->mysqlHost,
+            $this->setting->mysqlUser, $this->setting->mysqlPassword);
+        if (!$this->con->connect_errno) {
+            $this->con->query(sprintf("set character set '%s'", $this->setting->mysqlEncoding));
+            $this->con->set_charset($this->setting->mysqlEncoding);
+        }
+    }
+
+    public function query($query)
+    {
+        if ($result = $this->con->query($this->con->real_escape_string($query))) {
+            return $result;
+        } else {
+            $this->logger->add(sprintf("Failed to fetch '%s'", $query));
+            return FALSE;
+        }
+    }
+
+    public function selectDB($mysqlDB)
+    {
+        if ($mysqlDB == "acws") {
+            mysql_select_db($this->setting->mysqlAcWsConnectorDB);
+        } else if ($mysqlDB == "api") {
+            mysql_select_db($this->setting->mysqlApiDB);
+        }
+    }
+
+    public function closeCon()
+    {
+        $this->con->close();
     }
 }
 
@@ -144,6 +187,63 @@ class Logger
     }
 }
 
-echo str_replace("\\", "/", getcwd());
+/**
+ * Class Api
+ *
+ * Used for Trend API instances.
+ */
+class Api
+{
+    public static $paramDict = array(
+        "channel" => "a",
+        "from" => "b",
+        "to" => "c",
+        "sort" => "d",
+        "rev" => "e"
+    );
+    public static $expectedParams = array(
+        "1_2_1" => array("a", "b", "c", "d", "e")
+    );
+    public $queryString;
+    public $queryOrder;
+    public $queryParams;
+    public $parsedParams;
+
+    function __construct($queryString, $queryOrder)
+    {
+        $this->queryString = $queryString;
+        $this->queryOrder = $queryOrder;
+        $this->queryParams = explode("&", $queryString);
+        $this->parsedParams = array();
+        # Parse parameters.
+        foreach ($this->queryParams as $index => $value) {
+            $this->queryParams[$index] = explode("=", $this->queryParams[$index]);
+            if (in_array($this->queryParams[$index][0], $this::$paramDict)) {
+                $this->parsedParams[$this::$paramDict[$this->queryParams[$index][0]]] = $this->queryParams[$index][1];
+            } else {
+                throw new Exception(sprintf('Unrecognized parameter "%s".', $this->queryParams[$index][0]));
+            }
+        }
+        ksort($this->parsedParams);
+        # Remove extra parameters.
+        foreach ($this->parsedParams as $eachParam => $value) {
+            if (!in_array($eachParam, $this::$expectedParams[$this->$queryOrder])) {
+                unset($this->parsedParams[$eachParam]);
+            }
+        }
+    }
+
+    function __toString()
+    {
+        $gen = $this->queryOrder . "?";
+        foreach ($this->parsedParams as $eachParam => $value) {
+            $gen .= $eachParam . "=" . $value;
+        }
+        return $gen;
+    }
+
+}
+
+//echo str_replace("\\", "/", getcwd());
 
 ?>
