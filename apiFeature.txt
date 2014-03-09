@@ -1,0 +1,44 @@
+Mysql数据结构 [OK]
+
+===========================================
+Mysql Class [TODO]
+	连接mysql [TODO]
+
+/* Select queries return a resultset */
+if ($result = $mysqli->query("SELECT Name FROM City LIMIT 10")) {
+    printf("Select returned %d rows.\n", $result->num_rows);
+
+    /* free result set */
+    $result->close();
+}
+
+===========================================
+API Class
+	使用Mysql Class
+	parameter hash
+	查询结果
+		如果有cache则返回结果
+		如果无cache，且在请求中，则返回队列信息（刷新优先级）
+		如果无cache，且无请求，则加入请求并返回队列信息
+	加入请求或刷新时，判断优先级
+	加入请求或刷新后，更新ip table
+
+===========================================
+www/rank/articles
+	function + outer call
+www/rank/uploaders
+
+===========================================
+API Handler
+	多线程
+		QueryHandler负责维护ApiHandler.query
+		周期性地，QueryHandler会要求所有Pool暂停执行并清理queue
+	连接mysql 
+	获取最新的请求
+		优先级
+		同一优先级则轮询
+	查询结果 [TODO]
+	储存结果
+	遍历所有过期请求并删除
+
+Task Scheduler
