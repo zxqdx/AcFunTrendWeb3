@@ -106,12 +106,6 @@ var __ = (function () {
             toggleChosen: {
                 default: null
             },
-            notification: {
-                default: {
-                    broadcastList: [],
-                    logList: []
-                }
-            },
             zIndex: {
                 default: 1024
             }
@@ -161,11 +155,15 @@ var __ = (function () {
             console.warn('Color scheme "' + this.colorScheme + '" not found. Falling back to default scheme.');
             this.colorScheme = "blue";
         }
-        this.notification.broadcastIndex = 0;
-        this.notification.broadcastTime = 0;
-        this.notification.broadcastCooldown = this.constant.BROADCAST_COOLDOWN;
-        this.notification.logIndex = 0;
-        this.notification.logTime = 0;
+        this.notification = {
+            broadcastList: [],
+            logList: [],
+            broadcastIndex: 0,
+            broadcastTime: 0,
+            broadcastCooldown: this.constant.BROADCAST_COOLDOWN,
+            logIndex: 0,
+            logTime: 0
+        };
         this.lastUpdate = "尚未更新";
         this.task = {
             todoList: {},
@@ -815,6 +813,10 @@ var __ = (function () {
 
 // Tests
 __.refreshLastUpdate();
+__.addBroadcast("使用IE⑨+，chrome，firefox，safari等浏览器可以获得最好的浏览效果。");
+__.addBroadcast("使用前请确认您已经开启Javascript和Cookie（饼干），若未开启将无法正常访问趋势。");
+__.addBroadcast("增值电信业务经营许可证 浙B2-20100110-8");
+/*
 __.addLog("WELCOME TO THE ACFUN TREND!WELCOME TO THE ACFUN TREND!WELCOME TO THE ACFUN TREND!");
 window.setTimeout(function () {
     __.addLog("ABCDEFGHIJKLMNOPQ");
@@ -827,5 +829,6 @@ window.setTimeout(function () {
         __.addBroadcast("百度戳我", "www.baidu.com")
     }, 500);
 }, 1550)
+*/
 console.log(__.isNotify());
 console.log(__.lastUpdate);

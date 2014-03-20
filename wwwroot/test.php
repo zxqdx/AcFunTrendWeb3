@@ -17,3 +17,21 @@ ksort($brr);
 print_r($brr);
 unset($brr["b"]);
 print_r($brr);
+$api_1_2 = true;
+//echo "defined: ". array_key_exists("api_1_3", $GLOBALS);
+$variable_variable = "api_1_2";
+echo "isset: " . isset($$variable_variable);
+function throw_ex($msg) {
+    throw new Exception($msg);
+}
+try {
+    throw_ex("wtf");
+} catch (Exception $e) {
+//    echo $e->getMessage();
+    echo ($e->getTraceAsString());
+//    echo ($e->getFile().", ".$e->getLine().": ".$e->getMessage());
+}
+echo count($brr);
+require("./Util.php");
+echo "<br><br><br>";
+print_r(Utility::date_to_ac_days());

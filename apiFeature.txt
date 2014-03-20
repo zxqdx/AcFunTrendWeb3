@@ -15,7 +15,7 @@ if ($result = $mysqli->query("SELECT Name FROM City LIMIT 10")) {
 ===========================================
 API Class
 	使用Mysql Class
-	parameter hash
+	parameter parse
 	查询结果
 		如果有cache则返回结果
 		如果无cache，且在请求中，则返回队列信息（刷新优先级）

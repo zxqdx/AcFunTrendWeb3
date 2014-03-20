@@ -39,5 +39,5 @@ nosetests.xml
 wwwroot.iml
 wwwroot/debug
 .idea
-.trendlog
-.slock
+*.trendlog
+*.slock
