@@ -316,6 +316,8 @@ class Api
                     $resultCached = true;
                 }
                 $sqlResult->close();
+            } else {
+                throw new Exception("Query cache not available.");
             }
 
             if (!$resultCached) {
@@ -327,7 +329,7 @@ class Api
                 $userIP = Utility::get_ip();
                 $newIP = true;
                 $sqlResult = $this->mysql->query(
-                    sprintf('SELECT "count", ac_day FROM trend_api_ip_table WHERE ip="%s"',
+                    sprintf('SELECT `count`, ac_day FROM trend_api_ip_table WHERE ip="%s"',
                         $this->mysql->real_escape_string($userIP)));
                 $outdatedIP = false;
                 if ($sqlResult) {
@@ -346,10 +348,12 @@ class Api
                                 $ipPriority = 1;
                             }
                         }
+                    } else {
+                        $ipPriority = 1;
                     }
                     $sqlResult->close();
                 } else {
-                    $ipPriority = 1;
+                    throw new Exception("IP table not available.");
                 }
 
                 # Check whether in queue.
@@ -376,44 +380,45 @@ class Api
                             "pos" => $posInfo,
                             "pool" => $queryInfo["pool_id"]
                         );
+                    } else {
+                        # >> If no, add into the queue and refresh ip_table.
+                        $poolId = mt_rand(1, $this->setting->TrendAPIPoolNum);
+                        $sqlResult2 = $this->mysql->query(
+                            sprintf('INSERT INTO trend_api_queue(query, pool_id, priority) VALUES ("%s", %d, %d)',
+                                $this->mysql->real_escape_string($this), $poolId, $ipPriority));
+                        if (!($sqlResult2===true)) {
+                            throw new Exception("Query not added.");
+                        }
+                        # Generate result.
+                        $sqlResult2 = $this->mysql->query(
+                            sprintf('SELECT count(query) FROM trend_api_queue WHERE pool_id=%d AND priority<=%d',
+                                $poolId, $ipPriority));
+                        $posInfo = $sqlResult2->fetch_array();
+                        $posInfo = $posInfo[0];
+                        $result["content"]["status"] = array(
+                            "pos" => $posInfo,
+                            "pool" => $poolId
+                        );
+                        # Refresh ip_table.
+                        if ($newIP) {
+                            $this->mysql->query(
+                                sprintf('INSERT INTO trend_api_ip_table(ip, `count`, ac_day) VALUES ("%s", 1, %d)',
+                                    $this->mysql->real_escape_string($userIP), Utility::date_to_ac_days()));
+                        } else {
+                            if ($outdatedIP) {
+                                $this->mysql->query(
+                                    sprintf('UPDATE trend_api_ip_table SET `count`=1, ac_day=%d WHERE ip="%s"',
+                                        Utility::date_to_ac_days(), $this->mysql->real_escape_string($userIP)));
+                            } else {
+                                $this->mysql->query(
+                                    sprintf('UPDATE trend_api_ip_table SET `count`=`count`+1 WHERE ip="%s"',
+                                        $this->mysql->real_escape_string($userIP)));
+                            }
+                        }
                     }
                     $sqlResult->close();
                 } else {
-                    # >> If no, add into the queue and refresh ip_table.
-                    $poolId = mt_rand(1, $this->setting->TrendAPIPoolNum);
-                    $sqlResult2 = $this->mysql->query(
-                        sprintf('INSERT INTO trend_api_queue(query, pool_id, priority) VALUES ("%s", %d, %d)',
-                            $this->mysql->real_escape_string($this), $poolId, $ipPriority));
-                    if (!($sqlResult2===true)) {
-                        throw new Exception("Query added failed.");
-                    }
-                    $sqlResult2->close();
-                    # Generate result.
-                    $sqlResult2 = $this->mysql->query(
-                        sprintf('SELECT count(query) FROM trend_api_queue WHERE pool_id=%d AND priority<=%d',
-                            $poolId, $ipPriority));
-                    $posInfo = $sqlResult2->fetch_array();
-                    $posInfo = $posInfo[0];
-                    $result["content"]["status"] = array(
-                        "pos" => $posInfo,
-                        "pool" => $poolId
-                    );
-                    # Refresh ip_table.
-                    if ($newIP) {
-                        $this->mysql->query(
-                            sprintf('INSERT INTO trend_api_ip_table(ip, "count", ac_day) VALUES ("%s", 1, %d)',
-                                $this->mysql->real_escape_string($userIP), Utility::date_to_ac_days()));
-                    } else {
-                        if ($outdatedIP) {
-                            $this->mysql->query(
-                                sprintf('UPDATE trend_api_ip_table SET "count"=1, ac_day=%d WHERE ip="%s"',
-                                Utility::date_to_ac_days(), $this->mysql->real_escape_string($userIP)));
-                        } else {
-                            $this->mysql->query(
-                                sprintf('UPDATE trend_api_ip_table SET "count"="count"+1 WHERE ip="%s"',
-                                    $this->mysql->real_escape_string($userIP)));
-                        }
-                    }
+                    throw new Exception("Query database not available.");
                 }
             }
         } catch (Exception $e) {
