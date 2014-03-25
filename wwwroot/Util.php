@@ -25,7 +25,7 @@ class Setting
     function __construct()
     {
         $this->isDebug = true; // Modify this when necessary.
-        $this->wwwPath = str_replace("\\", "/", getcwd());
+        $this->wwwPath = str_replace("\\", "/", dirname(__FILE__));
         $this->globalSwitchPath = sprintf("%s/GlobalSwitch.trr", $this->wwwPath);
         $this->logFileSuffix = "trendlog";
         $this->lockFileSuffix = "slock";
@@ -61,8 +61,10 @@ class Utility
     public static function write_file($filename, $content, $form = "json", $append = true, $end = true)
     {
         try {
-            $folderName = dirname($filename);
-            mkdir($folderName, $recursive = true);
+            $folderName = dirname($filename)."/";
+            if (!is_dir($folderName)) {
+                mkdir($folderName, $recursive = true);
+            }
             if ($append) {
                 $file = fopen($filename, "a");
             } else {
@@ -131,9 +133,9 @@ class Logger
         $this->setting = new Setting();
         $dateTime = new DateTime();
         $this->module = $module;
-        $this->filename = sprintf("%s/debug/%s-%s/%s_%s.%s", $dateTime->format("Y-m-d H:i:s"), $dateTime->format("Y"),
+        $this->filename = sprintf("%s/debug/%s-%s/%s_%s.%s", $this->setting->wwwPath, $dateTime->format("Y"),
             $dateTime->format("m"), $dateTime->format("d"), $module, $this->setting->logFileSuffix);
-        $this->filename = sprintf("%s/debug/%s-%s/%s_%s_err.%s", $dateTime->format("Y-m-d H:i:s"), $dateTime->format("Y"),
+        $this->filenameDebug = sprintf("%s/debug/%s-%s/%s_%s_err.%s",$this->setting->wwwPath, $dateTime->format("Y"),
             $dateTime->format("m"), $dateTime->format("d"), $module, $this->setting->logFileSuffix);
     }
 
@@ -252,7 +254,6 @@ class Api
         $this->setting = new Setting();
         $this->mysql = new TrendSQL("Api_" . $queryOrder);
     }
-
     private function parse_parameters()
     {
         # Parse.
@@ -295,6 +296,7 @@ class Api
         $result = array();
         try {
             $this->parse_parameters();
+            return 0; # DEBUG...
             # Select Api database.
             $this->mysql->select_db("api");
             $resultCached = false;

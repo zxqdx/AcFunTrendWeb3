@@ -35,3 +35,5 @@ echo count($brr);
 require("./Util.php");
 echo "<br><br><br>";
 print_r(Utility::date_to_ac_days());
+echo "<br><br>" . $_SERVER['QUERY_STRING'];
+echo dirname(__FILE__);
