@@ -7,5 +7,5 @@
  */
 require("../../../Util.php");
 $api = new Api($_SERVER['QUERY_STRING'], '1_2_1');
-$api->execute(true);
-echo $api;
+print_r($api->execute(true));
+echo "<br>".$api;

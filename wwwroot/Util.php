@@ -147,6 +147,7 @@ class Logger
             $this->previousTime = $currentTime;
         }
         if ($ex != null) {
+            $message .= sprintf("'%s': %s", $ex->getMessage(), Utility::is_panguine() ? "\r" : "\n");
             $message .= $ex->getTraceAsString();
         }
         if ($level == "SEVERE") {
@@ -194,12 +195,16 @@ class TrendSQL
 
     public function query($query)
     {
-        if ($result = $this->con->query($this->con->real_escape_string($query))) {
+        if ($result = $this->con->query($query)) {
             return $result;
         } else {
-            $this->logger->add(sprintf("Failed to fetch '%s'", $query));
+            $this->logger->add(sprintf("Failed to fetch '%s'", $query), "WARNING");
             return FALSE;
         }
+    }
+
+    public function real_escape_string($query) {
+        return $this->con->real_escape_string($query);
     }
 
     public function select_db($mysqlDB)
@@ -259,7 +264,7 @@ class Api
         # Parse.
         foreach ($this->queryParams as $index => $value) {
             $this->queryParams[$index] = explode("=", $this->queryParams[$index]);
-            if (in_array($this->queryParams[$index][0], Api::$paramDict)) {
+            if (in_array($this->queryParams[$index][0], array_keys(Api::$paramDict))) {
                 $this->parsedParams[Api::$paramDict[$this->queryParams[$index][0]]] = $this->queryParams[$index][1];
             } else {
                 throw new Exception(sprintf('Unrecognized parameter "%s".', $this->queryParams[$index][0]));
@@ -268,7 +273,7 @@ class Api
         ksort($this->parsedParams);
         # Remove extra parameters.
         foreach ($this->parsedParams as $eachParam => $value) {
-            if (!in_array($eachParam, Api::$expectedParams[$this->$queryOrder])) {
+            if (!in_array($eachParam, Api::$expectedParams[$this->queryOrder])) {
                 unset($this->parsedParams[$eachParam]);
             }
         }
@@ -296,20 +301,22 @@ class Api
         $result = array();
         try {
             $this->parse_parameters();
-            return 0; # DEBUG...
             # Select Api database.
             $this->mysql->select_db("api");
             $resultCached = false;
             # Check whether in cache.
             $sqlResult = $this->mysql->query(
-                sprintf('SELECT result FROM trend_api_cache WHERE query="%s"', $this));
-            if ($sqlResult->num_rows > 0) {
-                $result = $sqlResult->fetch_array(MYSQLI_ASSOC);
-                # Generate result.
-                $result = $result["result"];
-                $resultCached = true;
+                sprintf('SELECT result FROM trend_api_cache WHERE query="%s"',
+                    $this->mysql->real_escape_string($this)));
+            if ($sqlResult) {
+                if ($sqlResult->num_rows > 0) {
+                    $result = $sqlResult->fetch_array(MYSQLI_ASSOC);
+                    # Generate result.
+                    $result = $result["result"];
+                    $resultCached = true;
+                }
+                $sqlResult->close();
             }
-            $sqlResult->close();
 
             if (!$resultCached) {
                 $result["success"] = false;
@@ -320,54 +327,64 @@ class Api
                 $userIP = Utility::get_ip();
                 $newIP = true;
                 $sqlResult = $this->mysql->query(
-                    sprintf('SELECT "count", ac_day FROM trend_api_ip_table WHERE ip="%s"', $userIP));
+                    sprintf('SELECT "count", ac_day FROM trend_api_ip_table WHERE ip="%s"',
+                        $this->mysql->real_escape_string($userIP)));
                 $outdatedIP = false;
-                if ($sqlResult->num_rows > 0) {
-                    $newIP = false;
-                    # Check if not today.
-                    $acDayToday = Utility::date_to_ac_days();
-                    $ipInfo = $sqlResult->fetch_array(MYSQLI_ASSOC);
-                    $outdatedIP = intval($ipInfo["ac_day"]) != $acDayToday;
-                    if (!$outdatedIP) {
-                        if ($ipInfo["count"] > $this->setting->llp_num) {
-                            $ipPriority = 3;
-                        } elseif ($ipInfo["count"] > $this->setting->lp_num) {
-                            $ipPriority = 2;
-                        } else {
-                            $ipPriority = 1;
+                if ($sqlResult) {
+                    if ($sqlResult->num_rows > 0) {
+                        $newIP = false;
+                        # Check if not today.
+                        $acDayToday = Utility::date_to_ac_days();
+                        $ipInfo = $sqlResult->fetch_array(MYSQLI_ASSOC);
+                        $outdatedIP = intval($ipInfo["ac_day"]) != $acDayToday;
+                        if (!$outdatedIP) {
+                            if ($ipInfo["count"] > $this->setting->llp_num) {
+                                $ipPriority = 3;
+                            } elseif ($ipInfo["count"] > $this->setting->lp_num) {
+                                $ipPriority = 2;
+                            } else {
+                                $ipPriority = 1;
+                            }
                         }
                     }
+                    $sqlResult->close();
+                } else {
+                    $ipPriority = 1;
                 }
-                $sqlResult->close();
 
                 # Check whether in queue.
                 $sqlResult = $this->mysql->query(
-                    sprintf('SELECT pool_id, priority FROM trend_api_queue WHERE query="%s"', $this));
-                if ($sqlResult->num_rows > 0) {
-                    # >> If yes, refresh priority if previous one is lower than current one.
-                    $queryInfo = $sqlResult->fetch_array(MYSQLI_ASSOC);
-                    if ($ipPriority < intval($queryInfo["priority"])) {
-                        $this->mysql->query(
-                            sprintf('UPDATE trend_api_queue SET priority=%d WHERE query="%s"', $ipPriority, $this));
-                        $ipPriority = intval($queryInfo["priority"]);
+                    sprintf('SELECT pool_id, priority FROM trend_api_queue WHERE query="%s"',
+                        $this->mysql->real_escape_string($this)));
+                if ($sqlResult) {
+                    if ($sqlResult->num_rows > 0) {
+                        # >> If yes, refresh priority if previous one is lower than current one.
+                        $queryInfo = $sqlResult->fetch_array(MYSQLI_ASSOC);
+                        if ($ipPriority < intval($queryInfo["priority"])) {
+                            $this->mysql->query(
+                                sprintf('UPDATE trend_api_queue SET priority=%d WHERE query="%s"',
+                                    $ipPriority, $this->mysql->real_escape_string($this)));
+                            $ipPriority = intval($queryInfo["priority"]);
+                        }
+                        $sqlResult2 = $this->mysql->query(
+                            sprintf('SELECT count(query) FROM trend_api_queue WHERE pool_id=%d AND priority<=%d',
+                                $queryInfo["pool_id"], $ipPriority));
+                        $posInfo = $sqlResult2->fetch_array();
+                        $posInfo = $posInfo[0];
+                        # Generate result.
+                        $result["content"]["status"] = array(
+                            "pos" => $posInfo,
+                            "pool" => $queryInfo["pool_id"]
+                        );
                     }
-                    $sqlResult2 = $this->mysql->query(
-                        sprintf('SELECT count(query) FROM trend_api_queue WHERE pool_id=%d AND priority<=%d',
-                            $queryInfo["pool_id"], $ipPriority));
-                    $posInfo = $sqlResult2->fetch_array();
-                    $posInfo = $posInfo[0];
-                    # Generate result.
-                    $result["content"]["status"] = array(
-                        "pos" => $posInfo,
-                        "pool" => $queryInfo["pool_id"]
-                    );
+                    $sqlResult->close();
                 } else {
                     # >> If no, add into the queue and refresh ip_table.
                     $poolId = mt_rand(1, $this->setting->TrendAPIPoolNum);
                     $sqlResult2 = $this->mysql->query(
                         sprintf('INSERT INTO trend_api_queue(query, pool_id, priority) VALUES ("%s", %d, %d)',
-                        $this, $poolId, $ipPriority));
-                    if (!$sqlResult2===true) {
+                            $this->mysql->real_escape_string($this), $poolId, $ipPriority));
+                    if (!($sqlResult2===true)) {
                         throw new Exception("Query added failed.");
                     }
                     $sqlResult2->close();
@@ -385,19 +402,19 @@ class Api
                     if ($newIP) {
                         $this->mysql->query(
                             sprintf('INSERT INTO trend_api_ip_table(ip, "count", ac_day) VALUES ("%s", 1, %d)',
-                            $userIP, Utility::date_to_ac_days()));
+                                $this->mysql->real_escape_string($userIP), Utility::date_to_ac_days()));
                     } else {
                         if ($outdatedIP) {
                             $this->mysql->query(
                                 sprintf('UPDATE trend_api_ip_table SET "count"=1, ac_day=%d WHERE ip="%s"',
-                                Utility::date_to_ac_days(), $userIP));
+                                Utility::date_to_ac_days(), $this->mysql->real_escape_string($userIP)));
                         } else {
                             $this->mysql->query(
-                                sprintf('UPDATE trend_api_ip_table SET "count"="count"+1 WHERE ip="%s"', $userIP));
+                                sprintf('UPDATE trend_api_ip_table SET "count"="count"+1 WHERE ip="%s"',
+                                    $this->mysql->real_escape_string($userIP)));
                         }
                     }
                 }
-                $sqlResult->close();
             }
         } catch (Exception $e) {
             $this->logger->add("Error occurred during api execution.", "SEVERE", $e);

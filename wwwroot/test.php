@@ -37,3 +37,7 @@ echo "<br><br><br>";
 print_r(Utility::date_to_ac_days());
 echo "<br><br>" . $_SERVER['QUERY_STRING'];
 echo dirname(__FILE__);
+$testArr = array(
+    "from" => "a"
+);
+echo "<br><br>in_array = " . in_array("from", array_keys($testArr));
