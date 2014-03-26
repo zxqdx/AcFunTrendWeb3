@@ -7,5 +7,5 @@
  */
 require("../../../Util.php");
 $api = new Api($_SERVER['QUERY_STRING'], '1_2_1');
-print_r($api->execute(true));
-echo "<br>".$api;
+header('Content-type: application/json; Charset=utf-8');
+echo $api->execute(true);

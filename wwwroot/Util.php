@@ -312,7 +312,7 @@ class Api
                 if ($sqlResult->num_rows > 0) {
                     $result = $sqlResult->fetch_array(MYSQLI_ASSOC);
                     # Generate result.
-                    $result = $result["result"];
+                    $result = json_decode($result["result"], TRUE);
                     $resultCached = true;
                 }
                 $sqlResult->close();
@@ -429,6 +429,9 @@ class Api
                 "query" => false,
                 "reason" => "请求数据库过程中出现异常，请重试或反馈错误。"
             );
+        }
+        if ($this->setting->isDebug) {
+            $result["debug"] = sprintf("%s", $this);
         }
         $this->result = $result;
         if ($toString) {
